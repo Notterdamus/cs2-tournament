@@ -109,6 +109,16 @@
   .mrow .meta{display:flex;gap:8px;align-items:center;flex-basis:100%;justify-content:center;margin-top:2px}
   .chip{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
   .chip-auto{color:var(--win);border-color:#2c5a3c}
+  .chip-live{color:#ff5a5a;border-color:#5a2626;font-weight:700}
+  .livebanner{display:flex;flex-wrap:wrap;gap:8px 18px;margin:-8px 0 20px;padding:11px 15px;
+    border-radius:11px;border:1px solid #5a2626;background:rgba(229,72,77,.08);
+    font-size:13px;color:#ffb3b3}
+  .livebanner b{color:#fff}
+  .live-panel{border-color:#5a2626}
+  .live-panel h2{background:linear-gradient(90deg,rgba(229,72,77,.15),transparent);color:#ff7a7a}
+  .mrow.live{background:linear-gradient(90deg,rgba(229,72,77,.06),transparent)}
+  .sc.live{border-color:#5a2626;color:#ff7a7a}
+  .sc.live span{color:#ff7a7a}
   .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--win)}
   .live i{width:8px;height:8px;border-radius:99px;background:var(--win);display:inline-block;animation:pulse 1.6s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
@@ -333,6 +343,20 @@
     champ.append(c);
   }
 
+  // ---------- live banner ----------
+  if((D.live||[]).length){
+    const lb = el('div','livebanner');
+    lb.innerHTML = D.live.map(m=>{
+      const hn = m.homeId?teamName(m.homeId):'Команда 1';
+      const an = m.awayId?teamName(m.awayId):'Команда 2';
+      const s = m.score||[0,0];
+      return `<span>🔴 <b>${hn} ${s[0]}:${s[1]} ${an}</b> · ${m.name}</span>`;
+    }).join('');
+    lb.style.cursor='pointer';
+    lb.onclick = ()=>{ const b=$('#tabs [data-tab="matches"]'); if(b) b.click(); };
+    champ.after(lb);
+  }
+
   // ---------- standings ----------
   (function(){
     const host = $('#tab-standings');
@@ -440,6 +464,31 @@
     const rr = D.roundRobin||[];
     const played = rr.filter(m=>m.played);
     const upcoming = rr.filter(m=>!m.played);
+    const live = D.live||[];
+
+    if(live.length){
+      const lp = el('div','panel live-panel');
+      lp.append(el('h2',null,'🔴 Идёт сейчас'));
+      live.forEach(m=>{
+        const a=m.score?m.score[0]:0, b=m.score?m.score[1]:0;
+        const hn = m.homeId?teamName(m.homeId):'Команда 1';
+        const an = m.awayId?teamName(m.awayId):'Команда 2';
+        const ht = m.homeId?teamTag(m.homeId):'—';
+        const at = m.awayId?teamTag(m.awayId):'—';
+        const row = el('div','mrow live');
+        row.innerHTML =
+          `<div class="side home"><span class="tag">${ht}</span><span class="nm">${hn}</span></div>`+
+          `<div class="sc live"><span>${a}</span>:<span>${b}</span></div>`+
+          `<div class="side away"><span class="tag">${at}</span><span class="nm">${an}</span></div>`+
+          `<div class="meta">`+
+            `<span class="chip chip-live">live · ${m.name}</span>`+
+            (m.map?`<span class="chip">${m.map}</span>`:'')+
+            (m.url?`<a class="chip" href="${m.url}" target="_blank" rel="noopener">смотреть ↗</a>`:'')+
+          `</div>`;
+        lp.append(row);
+      });
+      host.append(lp);
+    }
 
     const p = el('div','panel');
     p.append(el('h2',null,'Сыгранные матчи'));
@@ -614,8 +663,9 @@
     if(saved){ const b=tabs.querySelector(`[data-tab="${saved}"]`); if(b) b.click(); }
   }catch(_){}
 
-  // ---------- авто-обновление страницы, когда update.py --watch подложил новые данные ----------
+  // ---------- авто-обновление страницы, когда update.py подложил новые данные ----------
   const BASE = (D.generatedAt||0);
+  const REFRESH = (D.live&&D.live.length) ? 20000 : 45000;  // чаще, если идёт матч
   setInterval(async ()=>{
     try{
       const r = await fetch('dashboard-data.js?t='+Date.now(), {cache:'no-store'});
@@ -623,7 +673,7 @@
       const m = txt.match(/"generatedAt":\s*(\d+)/);
       if(m && parseInt(m[1],10) > BASE) location.reload();
     }catch(_){}
-  }, 45000);
+  }, REFRESH);
 })();
 </script>
 </body>
