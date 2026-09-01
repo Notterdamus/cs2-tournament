@@ -1115,11 +1115,38 @@ def open_browser(headful):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        sys.exit("Не установлен Playwright.\n"
-                 "  pip install playwright\n"
-                 "  python -m playwright install chromium")
+        sys.exit("Не установлен Playwright.  pip install playwright")
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(headless=not headful)
+
+    # 1) уже установленный в системе браузер (не требует загрузки Playwright),
+    # 2) собственный chromium Playwright — как запасной вариант.
+    attempts = []
+    forced = os.environ.get("FC_BROWSER_CHANNEL")  # chrome | msedge | chrome-beta ...
+    if forced:
+        attempts.append({"channel": forced})
+    attempts += [{"channel": "chrome"}, {"channel": "msedge"}, {}]
+
+    browser = None
+    errors = []
+    for kw in attempts:
+        try:
+            browser = pw.chromium.launch(headless=not headful, **kw)
+            if kw.get("channel"):
+                print(f"[browser] использую системный {kw['channel']}")
+            break
+        except Exception as e:
+            errors.append(f"{kw.get('channel') or 'chromium'}: {str(e).splitlines()[0]}")
+
+    if browser is None:
+        pw.stop()
+        sys.exit(
+            "Не удалось запустить браузер. Варианты:\n"
+            "  • установить Google Chrome (обычно уже есть) — скрипт подхватит его сам;\n"
+            "  • либо разово скачать браузер Playwright в обход корпоративного фильтра:\n"
+            "      set NODE_TLS_REJECT_UNAUTHORIZED=0\n"
+            "      python -m playwright install chromium\n\n"
+            "Подробности: " + " | ".join(errors))
+
     ctx = browser.new_context(
         locale="ru-RU",
         user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
