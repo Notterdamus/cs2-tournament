@@ -462,10 +462,14 @@ def resolve_fixture(fx, raw_list, roster_idx, home_id, away_id):
     и per-player статистику, ориентированную как home/away."""
     if not raw_list:
         return None
+    best_of = int(fx.get("bestOf") or 1)
+    need = best_of // 2 + 1                 # карт для победы в серии
     map_home = map_away = 0
     per_player = {}          # slug/nick -> aggregated in match(es)
     per_map = []
     for raw in raw_list:
+        if best_of > 1 and (map_home >= need or map_away >= need):
+            break                          # серия уже решена
         sa = side_team(raw["sides"][0], roster_idx)
         # сторона 0 -> home?
         if sa == home_id:
@@ -512,7 +516,10 @@ def resolve_fixture(fx, raw_list, roster_idx, home_id, away_id):
         "mapScore": [map_home, map_away],
         "maps": per_map,
         "players": list(per_player.values()),
-        "series": len(raw_list) > 1,
+        "series": best_of > 1 or len(raw_list) > 1,
+        "bestOf": best_of,
+        "decided": (best_of == 1 and len(per_map) >= 1)
+                   or map_home >= need or map_away >= need,
     }
 
 
@@ -710,14 +717,23 @@ def resolve_playoff(conf, standings, roster_idx, get):
             resolved = resolve_fixture(pf, raw_list, roster_idx, home_id, away_id)
             score, _ = fixture_score(pf, resolved)
             all_res.append(resolved)
+        best_of = int(pf.get("bestOf") or 1)
+        need = best_of // 2 + 1
         winner = None
         if score and home_id and away_id:
-            winner = home_id if score[0] > score[1] else (
-                away_id if score[1] > score[0] else None)
+            if best_of > 1:
+                if score[0] >= need:
+                    winner = home_id
+                elif score[1] >= need:
+                    winner = away_id
+            else:
+                winner = home_id if score[0] > score[1] else (
+                    away_id if score[1] > score[0] else None)
         out.append({
             "id": pf["id"], "name": pf["name"],
             "homeSeed": pf["homeSeed"], "awaySeed": pf["awaySeed"],
             "homeId": home_id, "awayId": away_id,
+            "bestOf": best_of,
             "score": score, "winnerId": winner,
             "maps": resolved["maps"] if resolved else None,
             "url": (raw_list[0]["url"] if raw_list else None),
@@ -817,8 +833,8 @@ def git_push(message):
         print("[git] это не git-репозиторий — пропускаю публикацию "
               "(см. раздел про GitHub Pages в README)")
         return
-    files = [f for f in ("dashboard-data.js", "tournament.json",
-                         "index.html", "README.md") if (ROOT / f).exists()]
+    files = [f for f in ("dashboard-data.js", "tournament.json", "index.html",
+                         "README.md", "ica_logo.png") if (ROOT / f).exists()]
     run("add", *files)
     if run("diff", "--cached", "--quiet").returncode == 0:
         return  # нечего коммитить
@@ -1021,6 +1037,19 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
             continue
         pair = frozenset((s0, s1))
 
+        def series_open(fx):
+            """серия ещё не завершена (для bestOf>1)"""
+            bo = int(fx.get("bestOf") or 1)
+            ids2 = fx.get("matchIds") or []
+            rl = [r for r in (get(x) for x in ids2 if x) if r]
+            if not rl:
+                return True
+            rr = resolve_fixture(fx, rl, roster_idx,
+                                 fx.get("home") or seeds.get(fx.get("homeSeed")),
+                                 fx.get("away") or seeds.get(fx.get("awaySeed")))
+            need2 = bo // 2 + 1
+            return not (rr and (rr["mapScore"][0] >= need2 or rr["mapScore"][1] >= need2))
+
         target = None
         for fx in conf["schedule"]["roundRobin"]:
             if frozenset((fx["home"], fx["away"])) == pair and not (
@@ -1030,10 +1059,19 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
         if target is None and rr_done:
             for pf in conf["schedule"]["playoff"]:
                 hid, aid = seeds.get(pf["homeSeed"]), seeds.get(pf["awaySeed"])
-                if frozenset((hid, aid)) == pair and not (
-                        pf.get("matchId") or pf.get("matchIds") or pf.get("manualScore")):
-                    target = pf
-                    break
+                if frozenset((hid, aid)) != pair or pf.get("manualScore"):
+                    continue
+                bo = int(pf.get("bestOf") or 1)
+                if bo <= 1:
+                    if not (pf.get("matchId") or pf.get("matchIds")):
+                        target = pf
+                        break
+                else:
+                    if str(mid) in [str(x) for x in (pf.get("matchIds") or [])]:
+                        break
+                    if series_open(pf):
+                        target = pf
+                        break
 
         if target is None:
             a, b = tuple(pair)
@@ -1044,14 +1082,20 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
             ignored.add(mid)
             continue
 
-        target["matchId"] = int(mid)
-        target["_auto"] = True
-        resolved[mid] = target["id"]
-        assigned_ids.add(mid)
         a, b = tuple(pair)
         an = next((t["name"] for t in conf["teams"] if t["id"] == a), a)
         bn = next((t["name"] for t in conf["teams"] if t["id"] == b), b)
         where = target.get("name") or f"тур {target.get('round')}"
+        if int(target.get("bestOf") or 1) > 1:
+            lst = target.get("matchIds") or []
+            lst.append(int(mid))
+            target["matchIds"] = lst
+            target["matchId"] = None
+        else:
+            target["matchId"] = int(mid)
+        target["_auto"] = True
+        resolved[mid] = target["id"]
+        assigned_ids.add(mid)
         newly.append(f"{where}: {an} {raw['score'][0]}:{raw['score'][1]} {bn} (#{mid})")
         print(f"[auto] + матч #{mid} -> {target['id']} ({where}): "
               f"{raw['score'][0]}:{raw['score'][1]}")

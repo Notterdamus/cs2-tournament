@@ -1,9 +1,9 @@
 // Автогенерация update.py — не редактировать вручную
 window.TOURNAMENT_DATA = {
-  "title": "Турнир по CS2",
-  "subtitle": "FastCup · Сентябрь 2026",
+  "title": "Турнир ICA по CS2",
+  "subtitle": "Intergas Central Asia · 2 сентября 2026",
   "format": {
-    "stage": "Круговой этап + плей-офф за 1-е и 3-е место",
+    "stage": "Круговой этап + плей-офф (финал и матч за 3-е место — до 2 побед)",
     "pointsWin": 3,
     "pointsDraw": 1,
     "pointsLoss": 0,
@@ -16,13 +16,13 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788262470,
+  "generatedAt": 1788267490,
   "autoTrack": true,
   "teams": [
     {
       "id": "t1",
-      "name": "QoM_Gala",
-      "tag": "QOM",
+      "name": "Galymzhan",
+      "tag": "GAL",
       "players": [
         {
           "nick": "QoM_Gala",
@@ -48,8 +48,8 @@ window.TOURNAMENT_DATA = {
     },
     {
       "id": "t2",
-      "name": "Notterdamus",
-      "tag": "NOT",
+      "name": "Bagdat",
+      "tag": "BAG",
       "players": [
         {
           "nick": "Notterdamus",
@@ -75,8 +75,8 @@ window.TOURNAMENT_DATA = {
     },
     {
       "id": "t3",
-      "name": "Areke__",
-      "tag": "ARK",
+      "name": "Arnat",
+      "tag": "ARN",
       "players": [
         {
           "nick": "Areke__",
@@ -102,8 +102,8 @@ window.TOURNAMENT_DATA = {
     },
     {
       "id": "t4",
-      "name": "1eooo",
-      "tag": "1EO",
+      "name": "Ruslan",
+      "tag": "RUS",
       "players": [
         {
           "nick": "1eooo",
@@ -129,8 +129,8 @@ window.TOURNAMENT_DATA = {
     },
     {
       "id": "t5",
-      "name": "52gertc",
-      "tag": "52G",
+      "name": "Beibarys",
+      "tag": "BEI",
       "players": [
         {
           "nick": "52gertc <3",
@@ -357,6 +357,7 @@ window.TOURNAMENT_DATA = {
       "awaySeed": 4,
       "homeId": null,
       "awayId": null,
+      "bestOf": 3,
       "score": null,
       "winnerId": null,
       "maps": null,
@@ -369,6 +370,7 @@ window.TOURNAMENT_DATA = {
       "awaySeed": 2,
       "homeId": null,
       "awayId": null,
+      "bestOf": 3,
       "score": null,
       "winnerId": null,
       "maps": null,
@@ -380,8 +382,8 @@ window.TOURNAMENT_DATA = {
       "nick": "QoM_Gala",
       "slug": "id2739525",
       "teamId": "t1",
-      "teamName": "QoM_Gala",
-      "teamTag": "QOM",
+      "teamName": "Galymzhan",
+      "teamTag": "GAL",
       "maps": 0,
       "k": 0,
       "d": 0,
@@ -399,8 +401,8 @@ window.TOURNAMENT_DATA = {
       "nick": "Notterdamus",
       "slug": "id2281946",
       "teamId": "t2",
-      "teamName": "Notterdamus",
-      "teamTag": "NOT",
+      "teamName": "Bagdat",
+      "teamTag": "BAG",
       "maps": 0,
       "k": 0,
       "d": 0,
@@ -418,8 +420,8 @@ window.TOURNAMENT_DATA = {
       "nick": "Areke__",
       "slug": "id2381920",
       "teamId": "t3",
-      "teamName": "Areke__",
-      "teamTag": "ARK",
+      "teamName": "Arnat",
+      "teamTag": "ARN",
       "maps": 0,
       "k": 0,
       "d": 0,
@@ -437,8 +439,8 @@ window.TOURNAMENT_DATA = {
       "nick": "1eooo",
       "slug": "id2732297",
       "teamId": "t4",
-      "teamName": "1eooo",
-      "teamTag": "1EO",
+      "teamName": "Ruslan",
+      "teamTag": "RUS",
       "maps": 0,
       "k": 0,
       "d": 0,
@@ -456,8 +458,8 @@ window.TOURNAMENT_DATA = {
       "nick": "52gertc <3",
       "slug": "id2795335",
       "teamId": "t5",
-      "teamName": "52gertc",
-      "teamTag": "52G",
+      "teamName": "Beibarys",
+      "teamTag": "BEI",
       "maps": 0,
       "k": 0,
       "d": 0,
