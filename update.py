@@ -961,15 +961,36 @@ MONTHS = {m: i for i, m in enumerate(
 
 
 def parse_profile_date(s):
-    """'26 Jul at 16:09' -> datetime (год подставляем текущий/прошлый)."""
+    """'26 Jul at 16:09' или относительное 'N minutes ago' -> datetime."""
     import datetime as _dt
-    m = re.match(r"(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\s+at\s+(\d{1,2}):(\d{2})", s or "")
+    s = (s or "").strip()
+    now = _dt.datetime.now()
+
+    # относительное время у свежих матчей: 'just now', '4 minutes ago',
+    # '2 hours ago', 'только что', '4 минуты назад', '2 часа назад'
+    if re.search(r"just now|только что|момент назад", s, re.I):
+        return now
+    m = re.search(r"(\d+)\s*(min|minute|минут)", s, re.I)
+    if m and re.search(r"ago|назад", s, re.I):
+        return now - _dt.timedelta(minutes=int(m[1]))
+    m = re.search(r"(\d+)\s*(hour|hr|час)", s, re.I)
+    if m and re.search(r"ago|назад", s, re.I):
+        return now - _dt.timedelta(hours=int(m[1]))
+    if re.search(r"(a|an|один)\s+(minute|hour|минут|час)", s, re.I) \
+            and re.search(r"ago|назад", s, re.I):
+        return now - _dt.timedelta(minutes=30)
+    m = re.search(r"(\d+)\s*(day|дн|день|сут)", s, re.I)
+    if m and re.search(r"ago|назад", s, re.I):
+        return now - _dt.timedelta(days=int(m[1]))
+    if re.search(r"yesterday|вчера", s, re.I):
+        return now - _dt.timedelta(days=1)
+
+    m = re.match(r"(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\s+at\s+(\d{1,2}):(\d{2})", s)
     if not m:
         return None
     day, mon, hh, mm = int(m[1]), MONTHS.get(m[2].lower()), int(m[3]), int(m[4])
     if not mon:
         return None
-    now = _dt.datetime.now()
     year = now.year if mon <= now.month + 1 else now.year - 1
     try:
         return _dt.datetime(year, mon, day, hh, mm)
@@ -989,9 +1010,11 @@ def parse_profile_matches(text):
         mode = next((c for c in chunk if re.match(r"^[125]v[125]$", c)), None)
         score = next((c for c in chunk if re.match(r"^\d{1,2}:\d{1,2}$", c)), None)
         date = next((c for c in chunk if re.match(
-            r"^\d{1,2}\s+[A-Za-z]{3,}\s+at\s+\d{1,2}:\d{2}$", c)), None)
+            r"^\d{1,2}\s+[A-Za-z]{3,}\s+at\s+\d{1,2}:\d{2}$", c)
+            or re.search(r"ago|назад|just now|только что|yesterday|вчера", c, re.I)),
+            None)
         out.append({"id": m[1], "mode": mode, "score": score,
-                    "date": parse_profile_date(date)})
+                    "date": parse_profile_date(date), "dateRaw": date})
     return out
 
 
@@ -1207,12 +1230,11 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
                 continue
             if r["id"] in ignored or r["id"] in assigned_ids:
                 continue
-            # с фильтром по дате берём только матчи с распознанной свежей датой
-            if since:
-                if not r["date"] or r["date"] < since:
-                    if not r["date"]:
-                        ignored.add(r["id"])   # старый матч без даты — больше не трогаем
-                    continue
+            if since and r["date"] and r["date"] < since:
+                ignored.add(r["id"])       # дата распозналась и она старая — больше не трогаем
+                continue
+            # дату не распознали ('4 minutes ago' и т.п.) — пропускаем дальше,
+            # реальную дату проверим уже по странице матча
             cand.setdefault(r["id"], r)
             added += 1
         print(f"[auto]   {slug}: новых кандидатов {added}")
