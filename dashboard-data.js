@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788344944,
+  "generatedAt": 1788345139,
   "autoTrack": true,
   "teams": [
     {
@@ -937,7 +937,7 @@ window.TOURNAMENT_DATA = {
       "homeId": "t1",
       "awayId": "t2",
       "score": [
-        4,
+        5,
         8
       ],
       "map": "Mirage",
