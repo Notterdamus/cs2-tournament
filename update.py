@@ -1599,8 +1599,6 @@ def main():
         cache_mem[mid] = r
         return r
 
-    prev_live = [False]
-
     def one_pass(first):
         nonlocal conf
         if args.push:
@@ -1616,12 +1614,11 @@ def main():
             roster_idx = build_roster_index(conf)
             summ = build_dashboard(conf, roster_idx, get, live=live)
         stamp = time.strftime("%H:%M:%S")
-        has_live = bool(live)
-        # публикуем, если: изменилась таблица, ИЛИ есть live-счёт, ИЛИ live только что пропал
-        chg = summ.get("changed", True) or bool(found) or has_live or prev_live[0]
-        prev_live[0] = has_live
+        # публикуем только если содержимое реально изменилось
+        # (build_dashboard учитывает и live-счёт, и таблицу)
+        chg = summ.get("changed", True) or bool(found)
         print(f"[{stamp}] круговой этап {summ['rrPlayed']}/{summ['rrTotal']}"
-              + (f" · идёт {len(live)} матч(а)" if has_live else "")
+              + (f" · идёт {len(live)} матч(а)" if live else "")
               + (" · изменений нет" if not chg else "")
               + (" · открой index.html" if first else ""))
         if args.push and chg:
