@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788319123,
+  "generatedAt": 1788319140,
   "autoTrack": true,
   "teams": [
     {
@@ -157,18 +157,6 @@ window.TOURNAMENT_DATA = {
   ],
   "standings": [
     {
-      "teamId": "t3",
-      "gp": 1,
-      "w": 1,
-      "d": 0,
-      "l": 0,
-      "rw": 13,
-      "rl": 9,
-      "pts": 3,
-      "diff": 4,
-      "pos": 1
-    },
-    {
       "teamId": "t1",
       "gp": 0,
       "w": 0,
@@ -178,7 +166,7 @@ window.TOURNAMENT_DATA = {
       "rl": 0,
       "pts": 0,
       "diff": 0,
-      "pos": 2
+      "pos": 1
     },
     {
       "teamId": "t2",
@@ -190,10 +178,22 @@ window.TOURNAMENT_DATA = {
       "rl": 0,
       "pts": 0,
       "diff": 0,
+      "pos": 2
+    },
+    {
+      "teamId": "t3",
+      "gp": 0,
+      "w": 0,
+      "d": 0,
+      "l": 0,
+      "rw": 0,
+      "rl": 0,
+      "pts": 0,
+      "diff": 0,
       "pos": 3
     },
     {
-      "teamId": "t5",
+      "teamId": "t4",
       "gp": 0,
       "w": 0,
       "d": 0,
@@ -205,15 +205,15 @@ window.TOURNAMENT_DATA = {
       "pos": 4
     },
     {
-      "teamId": "t4",
-      "gp": 1,
+      "teamId": "t5",
+      "gp": 0,
       "w": 0,
       "d": 0,
-      "l": 1,
-      "rw": 9,
-      "rl": 13,
+      "l": 0,
+      "rw": 0,
+      "rl": 0,
       "pts": 0,
-      "diff": -4,
+      "diff": 0,
       "pos": 5
     }
   ],
@@ -236,16 +236,13 @@ window.TOURNAMENT_DATA = {
       "round": 1,
       "home": "t3",
       "away": "t4",
-      "score": [
-        13,
-        9
-      ],
+      "score": null,
       "maps": null,
       "series": false,
       "date": null,
       "url": null,
       "auto": false,
-      "played": true
+      "played": false
     },
     {
       "id": "rr-3",
@@ -480,7 +477,7 @@ window.TOURNAMENT_DATA = {
   "rrDone": false,
   "championId": null,
   "bronzeId": null,
-  "rrPlayed": 1,
+  "rrPlayed": 0,
   "rrTotal": 10,
   "live": []
 };

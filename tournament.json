@@ -181,12 +181,7 @@
         "away": "t4",
         "matchId": null,
         "matchIds": null,
-        "manualScore": [
-          13,
-          9
-        ],
-        "_auto": false,
-        "_manual": true
+        "manualScore": null
       },
       {
         "id": "rr-3",
