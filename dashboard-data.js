@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788269409,
+  "generatedAt": 1788318916,
   "autoTrack": true,
   "teams": [
     {
@@ -478,5 +478,6 @@ window.TOURNAMENT_DATA = {
   "championId": null,
   "bronzeId": null,
   "rrPlayed": 0,
-  "rrTotal": 10
+  "rrTotal": 10,
+  "live": []
 };

@@ -21,6 +21,9 @@
     python update.py --watch          # онлайн-режим: сам ловит новые матчи по профилям капитанов
     python update.py --watch --push   # то же + git commit/push (публикация на GitHub Pages)
     python update.py --once           # один проход автоотслеживания и выход
+    python update.py --live           # live-счёт идущего матча (сам ищет или укажи ссылку)
+    python update.py --edit           # ручной ввод счёта (меню) — форс-мажор
+    python update.py --set rr-3 13 7  # задать счёт клетке; --clear rr-3 — сбросить
 
 Автоотслеживание: включи блок "autoTrack" в tournament.json и впиши slug'и
 капитанов — скрипт сам найдёт сыгранные матчи турнира и проставит счёт.
@@ -223,6 +226,34 @@ OVERVIEW_JS = r"""
 """
 
 
+# лёгкое чтение идущего матча со страницы статистики
+LIVE_JS = r"""
+() => {
+  const NAV = new Set(%NAV%);
+  const seen = new Set(); const players = [];
+  for (const a of document.querySelectorAll('a[href]')) {
+    const h = a.getAttribute('href') || '';
+    if (!/^\/[A-Za-z0-9_.\-]+$/.test(h) || NAV.has(h)) continue;
+    const slug = h.slice(1); if (seen.has(slug)) continue; seen.add(slug);
+    const nick = (a.innerText || '').trim().split('\n').map(s=>s.trim()).filter(Boolean).pop() || slug;
+    players.push({ slug, nick });
+  }
+  const body = document.body.innerText;
+  const m = body.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
+  const MAPS = ['Mirage','Inferno','Nuke','Ancient','Anubis','Overpass',
+                'Vertigo','Train','Cache','Dust II','Dust2'];
+  const map = MAPS.find(x => body.includes(x)) || null;
+  let status = 'live';
+  if (/Finished|Заверш|Оконч/i.test(body)) status = 'finished';
+  else if (/Waiting for players|Voting|Veto|Pick.?ban|Ожидание|Голосов|Ban \/ Ban/i.test(body)
+           && !m) status = 'pending';
+  return { score: m ? [parseInt(m[1],10), parseInt(m[2],10)] : null,
+           players: players.slice(0,10), map, status,
+           hasTable: /Sick-frags|SICK-FRAGS/i.test(body) };
+}
+""".replace("%NAV%", json.dumps(sorted(NAV_PATHS)))
+
+
 # профиль игрока: /<slug>/matches  — плоский список
 PROFILE_JS = r"""
 () => ({ body: document.body.innerText,
@@ -230,6 +261,20 @@ PROFILE_JS = r"""
                 .map(a => a.getAttribute('href') || '')
                 .filter(h => /^\/matches\/\d+$/.test(h))
                 .map(h => h.split('/')[2]) })
+"""
+
+
+# главная страница профиля /<slug> — ищем текущий (идущий) матч
+PROFILE_MAIN_JS = r"""
+() => {
+  const head = document.body.innerText.slice(0, 400);
+  const online = /Online|Онлайн|В сети|In match|In game|В матче|Playing|Играет/i.test(head);
+  const ids = [...document.querySelectorAll('a[href]')]
+    .map(a => a.getAttribute('href') || '')
+    .filter(h => /^\/matches\/\d+$/.test(h))
+    .map(h => h.split('/')[2]);
+  return { online, ids: [...new Set(ids)], head };
+}
 """
 
 
@@ -374,6 +419,32 @@ def scrape_match(page, match_id):
         "sides": [nicks[:len(nicks) // 2], nicks[len(nicks) // 2:]],
         "players": players,
         "scrapedAt": int(time.time()),
+    }
+
+
+def scrape_live(page, match_id):
+    """Лёгкое чтение идущего матча: текущий счёт, статус, составы, карта."""
+    url = f"https://cs2.fastcup.net/matches/{match_id}/stats?hl=en"
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    d = {}
+    for _ in range(12):
+        page.wait_for_timeout(1000)
+        try:
+            d = page.evaluate(LIVE_JS)
+        except Exception:
+            continue
+        if d.get("score") or d.get("status") in ("finished", "pending"):
+            break
+    nicks = [p["nick"] for p in d.get("players", [])]
+    half = len(nicks) // 2
+    return {
+        "matchId": int(match_id),
+        "url": f"https://cs2.fastcup.net/matches/{match_id}/stats",
+        "status": d.get("status", "live"),
+        "score": d.get("score"),
+        "map": d.get("map"),
+        "sides": [nicks[:half], nicks[half:]],
+        "players": d.get("players", []),
     }
 
 
@@ -744,7 +815,7 @@ def resolve_playoff(conf, standings, roster_idx, get):
 # --------------------------------------------------------------------------- #
 #  Пересчёт и запись dashboard-data.js
 # --------------------------------------------------------------------------- #
-def build_dashboard(conf, roster_idx, get):
+def build_dashboard(conf, roster_idx, get, live=None):
     rr_results = []
     all_resolved = []
     for fx in conf["schedule"]["roundRobin"]:
@@ -807,6 +878,7 @@ def build_dashboard(conf, roster_idx, get):
         "bronzeId": bronze,
         "rrPlayed": sum(1 for _, (s, _r) in rr_results if s is not None),
         "rrTotal": total_rr_matches(conf),
+        "live": live or [],
     }
     OUT.write_text(
         "// Автогенерация update.py — не редактировать вручную\n"
@@ -821,6 +893,37 @@ def build_dashboard(conf, roster_idx, get):
 # --------------------------------------------------------------------------- #
 #  Публикация на GitHub Pages (git push)
 # --------------------------------------------------------------------------- #
+def _git(*a):
+    import subprocess
+    return subprocess.run(("git",) + a, cwd=ROOT, capture_output=True,
+                          text=True, encoding="utf-8", errors="replace")
+
+
+def is_git_repo():
+    try:
+        return _git("rev-parse", "--is-inside-work-tree").returncode == 0
+    except Exception:
+        return False
+
+
+def git_sync():
+    """Подтянуть правки с GitHub (например, счёт, изменённый с телефона).
+    При конфликте побеждает серверная версия — ручная правка важнее авто."""
+    if not is_git_repo():
+        return
+    _git("add", "-A")
+    _git("commit", "-m", "autosync")            # ок, если коммитить нечего
+    if _git("fetch", "origin").returncode != 0:
+        return                                  # нет сети — просто продолжаем
+    r = _git("pull", "--no-rebase", "-X", "theirs", "--no-edit")
+    if r.returncode != 0:
+        _git("merge", "--abort")
+        _git("rebase", "--abort")
+        print("[git] не удалось подтянуть правки с GitHub, работаю с локальной версией")
+    elif "Already up to date" not in (r.stdout or ""):
+        print("[git] подтянул правки с GitHub")
+
+
 def git_push(message):
     """Коммит + пуш dashboard-data.js и tournament.json, если что-то изменилось."""
     import subprocess
@@ -918,6 +1021,126 @@ def scrape_profile(page, slug):
          for i in data.get("ids", [])]
 
 
+def scrape_profile_current(page, slug):
+    """Главная страница профиля /<slug>: ищем ссылку на идущий сейчас матч."""
+    try:
+        page.goto(f"https://cs2.fastcup.net/{slug}?hl=en",
+                  wait_until="domcontentloaded", timeout=45000)
+    except Exception:
+        return []
+    d = {}
+    for _ in range(10):
+        page.wait_for_timeout(1000)
+        try:
+            d = page.evaluate(PROFILE_MAIN_JS)
+        except Exception:
+            continue
+        if d.get("head"):
+            break
+    return d.get("ids", [])
+
+
+def captain_slug_set(conf):
+    return set(s.lower() for s in (conf.get("autoTrack", {}).get("captains") or []))
+
+
+def identify_side(nicks, roster_idx, captain_slugs):
+    """teamId стороны: сначала по капитану, потом по большинству ростера."""
+    by_team = {}
+    cap_team = None
+    for n in nicks:
+        r = roster_idx.get((n or "").lower())
+        if not r:
+            continue
+        by_team[r["teamId"]] = by_team.get(r["teamId"], 0) + 1
+        if r["key"].lower() in captain_slugs:
+            cap_team = r["teamId"]
+    if cap_team:
+        return cap_team
+    if by_team:
+        best = max(by_team, key=by_team.get)
+        if by_team[best] >= 3:
+            return best
+    return None
+
+
+def match_pair(raw, roster_idx, captain_slugs):
+    """frozenset из двух teamId по составам матча, или None."""
+    s0 = identify_side(raw["sides"][0], roster_idx, captain_slugs)
+    s1 = identify_side(raw["sides"][1], roster_idx, captain_slugs)
+    if s0 and s1 and s0 != s1:
+        return frozenset((s0, s1))
+    return None
+
+
+def place_match(conf, mid, raw, roster_idx, captain_slugs, seeds, rr_done, get, state):
+    """Вписывает сыгранный матч в свободную клетку расписания.
+    Возвращает (fixture, human_desc) или None. Мутирует conf и state."""
+    mid = str(mid)
+    ignored = set(state.setdefault("ignored", []))
+    resolved = state.setdefault("resolved", {})
+
+    if len(raw.get("players", [])) != 10 or not raw.get("score"):
+        ignored.add(mid); state["ignored"] = sorted(ignored); return None
+    pair = match_pair(raw, roster_idx, captain_slugs)
+    if not pair:
+        ignored.add(mid); state["ignored"] = sorted(ignored); return None
+
+    def series_open(fx):
+        bo = int(fx.get("bestOf") or 1)
+        rl = [r for r in (get(x) for x in (fx.get("matchIds") or []) if x) if r]
+        if not rl:
+            return True
+        rr = resolve_fixture(fx, rl, roster_idx,
+                             fx.get("home") or seeds.get(fx.get("homeSeed")),
+                             fx.get("away") or seeds.get(fx.get("awaySeed")))
+        need2 = bo // 2 + 1
+        return not (rr and (rr["mapScore"][0] >= need2 or rr["mapScore"][1] >= need2))
+
+    target = None
+    for fx in conf["schedule"]["roundRobin"]:
+        if frozenset((fx["home"], fx["away"])) == pair and not (
+                fx.get("matchId") or fx.get("matchIds") or fx.get("manualScore")):
+            target = fx; break
+    if target is None and rr_done:
+        for pf in conf["schedule"]["playoff"]:
+            hid, aid = seeds.get(pf["homeSeed"]), seeds.get(pf["awaySeed"])
+            if frozenset((hid, aid)) != pair or pf.get("manualScore"):
+                continue
+            if int(pf.get("bestOf") or 1) <= 1:
+                if not (pf.get("matchId") or pf.get("matchIds")):
+                    target = pf; break
+            else:
+                if mid in [str(x) for x in (pf.get("matchIds") or [])]:
+                    break
+                if series_open(pf):
+                    target = pf; break
+
+    if target is None:
+        a, b = tuple(pair)
+        an = next((t["name"] for t in conf["teams"] if t["id"] == a), a)
+        bn = next((t["name"] for t in conf["teams"] if t["id"] == b), b)
+        print(f"[auto] матч #{mid} ({an} vs {bn}) — нет свободного места в расписании. Пропускаю.")
+        ignored.add(mid); state["ignored"] = sorted(ignored); return None
+
+    where = target.get("name") or f"тур {target.get('round')}"
+    if int(target.get("bestOf") or 1) > 1:
+        lst = target.get("matchIds") or []
+        lst.append(int(mid))
+        target["matchIds"] = lst
+        target["matchId"] = None
+    else:
+        target["matchId"] = int(mid)
+    target["_auto"] = True
+    resolved[mid] = target["id"]
+    a, b = tuple(pair)
+    an = next((t["name"] for t in conf["teams"] if t["id"] == a), a)
+    bn = next((t["name"] for t in conf["teams"] if t["id"] == b), b)
+    print(f"[auto] + матч #{mid} -> {target['id']} ({where}): "
+          f"{raw['score'][0]}:{raw['score'][1]}")
+    return target, f"{where}: {an} {raw['score'][0]}:{raw['score'][1]} {bn} (#{mid})"
+
+
 def load_state():
     sf = CACHE / "_autotrack.json"
     if sf.exists():
@@ -956,30 +1179,10 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
         except Exception:
             print(f"[auto] autoTrack.since='{at['since']}' — ожидается формат ГГГГ-ММ-ДД, игнорирую фильтр по дате")
 
-    captain_slugs = set(s.lower() for s in (at.get("captains") or []))
-
-    def identify_side(nicks):
-        """teamId стороны: сначала по капитану, потом по большинству ростера."""
-        by_team = {}
-        cap_team = None
-        for n in nicks:
-            r = roster_idx.get((n or "").lower())
-            if not r:
-                continue
-            by_team[r["teamId"]] = by_team.get(r["teamId"], 0) + 1
-            if r["key"].lower() in captain_slugs:
-                cap_team = r["teamId"]
-        if cap_team:
-            return cap_team
-        if by_team:
-            best = max(by_team, key=by_team.get)
-            if by_team[best] >= 3:
-                return best
-        return None
+    captain_slugs = captain_slug_set(conf)
 
     st = load_state()
     ignored = set(st.get("ignored", []))
-    resolved = dict(st.get("resolved", {}))
 
     # уже занятые пары (RR + playoff) — по id матча
     assigned_ids = set()
@@ -1020,88 +1223,20 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
         if not raw or not raw.get("score"):
             ignored.add(mid)
             continue
-        if len(raw.get("players", [])) != 10:
-            ignored.add(mid)          # не 5x5
-            continue
         # проверка даты по странице матча (авторитетнее профиля)
         if since:
             md = parse_profile_date(raw.get("dateText") or "")
             if md and md < since:
                 ignored.add(mid)
                 continue
-        # какие команды турнира на площадке
-        s0 = identify_side(raw["sides"][0])
-        s1 = identify_side(raw["sides"][1])
-        if not (s0 and s1 and s0 != s1):
-            ignored.add(mid)          # не матч турнира
-            continue
-        pair = frozenset((s0, s1))
-
-        def series_open(fx):
-            """серия ещё не завершена (для bestOf>1)"""
-            bo = int(fx.get("bestOf") or 1)
-            ids2 = fx.get("matchIds") or []
-            rl = [r for r in (get(x) for x in ids2 if x) if r]
-            if not rl:
-                return True
-            rr = resolve_fixture(fx, rl, roster_idx,
-                                 fx.get("home") or seeds.get(fx.get("homeSeed")),
-                                 fx.get("away") or seeds.get(fx.get("awaySeed")))
-            need2 = bo // 2 + 1
-            return not (rr and (rr["mapScore"][0] >= need2 or rr["mapScore"][1] >= need2))
-
-        target = None
-        for fx in conf["schedule"]["roundRobin"]:
-            if frozenset((fx["home"], fx["away"])) == pair and not (
-                    fx.get("matchId") or fx.get("matchIds") or fx.get("manualScore")):
-                target = fx
-                break
-        if target is None and rr_done:
-            for pf in conf["schedule"]["playoff"]:
-                hid, aid = seeds.get(pf["homeSeed"]), seeds.get(pf["awaySeed"])
-                if frozenset((hid, aid)) != pair or pf.get("manualScore"):
-                    continue
-                bo = int(pf.get("bestOf") or 1)
-                if bo <= 1:
-                    if not (pf.get("matchId") or pf.get("matchIds")):
-                        target = pf
-                        break
-                else:
-                    if str(mid) in [str(x) for x in (pf.get("matchIds") or [])]:
-                        break
-                    if series_open(pf):
-                        target = pf
-                        break
-
-        if target is None:
-            a, b = tuple(pair)
-            an = next((t["name"] for t in conf["teams"] if t["id"] == a), a)
-            bn = next((t["name"] for t in conf["teams"] if t["id"] == b), b)
-            print(f"[auto] матч #{mid} ({an} vs {bn}) — нет свободного места в "
-                  f"расписании (уже сыграно или не по сетке). Пропускаю.")
-            ignored.add(mid)
-            continue
-
-        a, b = tuple(pair)
-        an = next((t["name"] for t in conf["teams"] if t["id"] == a), a)
-        bn = next((t["name"] for t in conf["teams"] if t["id"] == b), b)
-        where = target.get("name") or f"тур {target.get('round')}"
-        if int(target.get("bestOf") or 1) > 1:
-            lst = target.get("matchIds") or []
-            lst.append(int(mid))
-            target["matchIds"] = lst
-            target["matchId"] = None
-        else:
-            target["matchId"] = int(mid)
-        target["_auto"] = True
-        resolved[mid] = target["id"]
-        assigned_ids.add(mid)
-        newly.append(f"{where}: {an} {raw['score'][0]}:{raw['score'][1]} {bn} (#{mid})")
-        print(f"[auto] + матч #{mid} -> {target['id']} ({where}): "
-              f"{raw['score'][0]}:{raw['score'][1]}")
+        st["ignored"] = sorted(ignored)
+        res = place_match(conf, mid, raw, roster_idx, captain_slugs,
+                          seeds, rr_done, get, st)
+        ignored = set(st.get("ignored", []))
+        if res:
+            newly.append(res[1])
 
     st["ignored"] = sorted(ignored)
-    st["resolved"] = resolved
     save_state(st)
     if newly:
         save_conf(conf)
@@ -1156,6 +1291,135 @@ def open_browser(headful):
     return pw, browser, ctx.new_page()
 
 
+# --------------------------------------------------------------------------- #
+#  Ручной ввод счёта (форс-мажор)
+# --------------------------------------------------------------------------- #
+def find_fixture(conf, fid):
+    fid = str(fid).strip().lower()
+    for fx in conf["schedule"]["roundRobin"] + conf["schedule"]["playoff"]:
+        if str(fx["id"]).lower() == fid:
+            return fx
+    return None
+
+
+def _forget_ids(fx, state):
+    """убрать id матчей этой клетки из авто-состояния, чтобы --watch не вернул их"""
+    ids = list(fx.get("matchIds") or [])
+    if fx.get("matchId"):
+        ids.append(fx["matchId"])
+    ign = set(state.setdefault("ignored", []))
+    res = state.setdefault("resolved", {})
+    for m in ids:
+        pid = parse_match_id(m)
+        if pid:
+            ign.add(pid)
+            res.pop(pid, None)
+    state["ignored"] = sorted(ign)
+
+
+def set_manual(conf, fid, a, b, state):
+    fx = find_fixture(conf, fid)
+    if not fx:
+        print(f"[ручной] нет клетки '{fid}'. Список: --edit")
+        return False
+    try:
+        a, b = int(a), int(b)
+    except ValueError:
+        print("[ручной] счёт должен быть числами, напр.: --set rr-3 13 7")
+        return False
+    _forget_ids(fx, state)
+    fx["manualScore"] = [a, b]
+    fx["matchId"] = None
+    fx["matchIds"] = None
+    fx["_auto"] = False
+    fx["_manual"] = True
+    name = fx.get("name") or f"тур {fx.get('round')}"
+    print(f"[ручной] {fx['id']} ({name}): счёт вручную {a}:{b}")
+    return True
+
+
+def clear_fixture(conf, fid, state):
+    fx = find_fixture(conf, fid)
+    if not fx:
+        print(f"[ручной] нет клетки '{fid}'.")
+        return False
+    _forget_ids(fx, state)
+    fx["manualScore"] = None
+    fx["matchId"] = None
+    fx["matchIds"] = None
+    fx.pop("_auto", None)
+    fx.pop("_manual", None)
+    print(f"[ручной] {fx['id']}: сброшено")
+    return True
+
+
+def _fixture_line(conf, fx, seeds):
+    tn = {t["id"]: t for t in conf["teams"]}
+    if "home" in fx:
+        h, aw = tn.get(fx["home"], {}).get("name", fx["home"]), \
+                tn.get(fx["away"], {}).get("name", fx["away"])
+        head = f"тур {fx['round']:<2} {h} — {aw}"
+    else:
+        hid, aid = seeds.get(fx["homeSeed"]), seeds.get(fx["awaySeed"])
+        h = tn.get(hid, {}).get("name") or f"{fx['homeSeed']}-е место"
+        aw = tn.get(aid, {}).get("name") or f"{fx['awaySeed']}-е место"
+        head = f"{fx['name']} ({h} — {aw})"
+    if fx.get("manualScore"):
+        sc = f"{fx['manualScore'][0]}:{fx['manualScore'][1]} (вручную)"
+    elif fx.get("matchId") or fx.get("matchIds"):
+        sc = "по матчу FastCup" + (" (авто)" if fx.get("_auto") else "")
+    else:
+        sc = "— не сыграно"
+    return f"{head:<48} {sc}"
+
+
+def manual_menu(conf, state, seeds):
+    while True:
+        print("\n=== Круговой этап ===")
+        rr = conf["schedule"]["roundRobin"]
+        for i, fx in enumerate(rr, 1):
+            print(f" {i:>2}. [{fx['id']}] {_fixture_line(conf, fx, seeds)}")
+        print("=== Плей-офф ===")
+        po = conf["schedule"]["playoff"]
+        for j, fx in enumerate(po, 1):
+            print(f" P{j}. [{fx['id']}] {_fixture_line(conf, fx, seeds)}")
+        print("\nВыбери: номер (1, P1) чтобы задать счёт | c <номер> сбросить | "
+              "q сохранить и выйти")
+        raw = input("> ").strip()
+        if not raw:
+            continue
+        if raw.lower() in ("q", "exit", "quit", "й"):
+            return
+        clear = raw.lower().startswith("c ")
+        token = raw[2:].strip() if clear else raw
+
+        def resolve_token(tok):
+            tok = tok.strip().lower()
+            if tok.startswith("p") and tok[1:].isdigit():
+                k = int(tok[1:]) - 1
+                return po[k]["id"] if 0 <= k < len(po) else None
+            if tok.isdigit():
+                k = int(tok) - 1
+                return rr[k]["id"] if 0 <= k < len(rr) else None
+            return find_fixture(conf, tok) and tok
+        fid = resolve_token(token)
+        if not fid:
+            print("не понял номер"); continue
+        if clear:
+            clear_fixture(conf, fid, state)
+            continue
+        fx = find_fixture(conf, fid)
+        bo = int(fx.get("bestOf") or 1)
+        hint = "счёт по картам, напр. 2 1" if bo > 1 else "счёт, напр. 13 7"
+        s = input(f"  {fid} — {hint} (пусто — отмена): ").strip()
+        if not s:
+            continue
+        parts = s.replace(":", " ").split()
+        if len(parts) != 2:
+            print("нужно два числа"); continue
+        set_manual(conf, fid, parts[0], parts[1], state)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-scrape", action="store_true",
@@ -1174,6 +1438,17 @@ def main():
                     help="один проход автоотслеживания и выход")
     ap.add_argument("--push", action="store_true",
                     help="после обновления делать git commit + push (GitHub Pages)")
+    ap.add_argument("--live", nargs="*", metavar="MATCH",
+                    help="live-счёт идущих матчей. Без аргументов — сам ищет "
+                         "идущие матчи капитанов; либо укажи ID/ссылки вручную")
+    ap.add_argument("--live-interval", type=int, default=45,
+                    help="период опроса для --live в секундах (по умолчанию 45)")
+    ap.add_argument("--edit", action="store_true",
+                    help="ручной ввод счёта (меню) — для форс-мажора")
+    ap.add_argument("--set", nargs=3, metavar=("FIXTURE", "A", "B"),
+                    help="задать счёт вручную: --set rr-3 13 7  (для плей-офф — по картам)")
+    ap.add_argument("--clear", metavar="FIXTURE",
+                    help="сбросить матч в клетке (убрать счёт/ссылку): --clear rr-3")
     args = ap.parse_args()
     refresh = set(str(x) for x in args.refresh)
 
@@ -1193,13 +1468,16 @@ def main():
                     ids.append(pid)
         return ids
 
-    auto = bool(conf.get("autoTrack", {}).get("enabled"))
+    manual_mode = bool(args.edit or args.set or args.clear)
+
+    auto = bool(conf.get("autoTrack", {}).get("enabled")) and not manual_mode
     need_ids = scan_ids(conf)
     must_scrape = [m for m in need_ids
                    if (m in refresh) or not (CACHE / f"{m}.json").exists()]
 
     pw = browser = page = None
-    want_browser = (not args.no_scrape) and (must_scrape or args.watch or args.once or auto)
+    want_browser = (not args.no_scrape) and (not manual_mode) and (
+        must_scrape or args.watch or args.once or auto or args.live is not None)
     if want_browser:
         pw, browser, page = open_browser(args.headful)
 
@@ -1217,6 +1495,8 @@ def main():
 
     def one_pass(first):
         nonlocal conf
+        if args.push:
+            git_sync()                     # подтянуть правки счёта с GitHub/телефона
         conf = load_conf()
         roster_idx = build_roster_index(conf)
         summ = build_dashboard(conf, roster_idx, get)
@@ -1235,8 +1515,180 @@ def main():
             git_push(f"tournament update {time.strftime('%Y-%m-%d %H:%M')}")
         return summ
 
+    def live_loop():
+        nonlocal conf
+        manual = [x for x in (parse_match_id(v) for v in args.live) if x]
+        auto_find = not manual          # --live без аргументов -> ищем сами
+        itv = max(20, args.live_interval)
+        tracking = list(manual)
+        seen_done = set()
+
+        conf0 = load_conf()
+        cap_slugs = list(conf0.get("autoTrack", {}).get("captains") or [])
+        if not cap_slugs:
+            for t in conf0["teams"]:
+                for pl in t["players"]:
+                    if pl.get("slug"):
+                        cap_slugs.append(pl["slug"])
+        cap_slugs = list(dict.fromkeys(cap_slugs))
+
+        if auto_find:
+            if not cap_slugs:
+                sys.exit("[live] нет slug капитанов в tournament.json — укажи матчи вручную: "
+                         "python update.py --live <ссылка>")
+            print(f"[live] ищу идущие матчи по профилям капитанов "
+                  f"({len(cap_slugs)} шт.), опрос каждые {itv} с. Ctrl+C — остановить.")
+        else:
+            print(f"[live] слежу за: {', '.join('#'+t for t in tracking)} "
+                  f"(каждые {itv} с). Ctrl+C — остановить.")
+
+        idle = 0
+        while True:
+            if args.push:
+                git_sync()
+            conf = load_conf()
+            roster_idx = build_roster_index(conf)
+            caps = captain_slug_set(conf)
+            base = build_dashboard(conf, roster_idx, get)
+            seeds, rr_done = base["seeds"], base["rrDone"]
+
+            # --- авто-поиск идущих матчей по профилям ---
+            if auto_find:
+                found = []
+                for slug in cap_slugs:
+                    try:
+                        for mid in scrape_profile_current(page, slug):
+                            if mid not in tracking and mid not in seen_done:
+                                found.append(mid)
+                    except Exception as e:
+                        print(f"[live] профиль {slug}: {e}")
+                for mid in dict.fromkeys(found):
+                    try:
+                        chk = scrape_live(page, mid)
+                    except Exception:
+                        continue
+                    if chk.get("status") == "live" and len(chk.get("players", [])) == 10 \
+                            and match_pair(chk, roster_idx, caps):
+                        tracking.append(mid)
+                        print(f"[live] нашёл идущий матч #{mid}")
+                    else:
+                        seen_done.add(mid)
+
+            live_entries = []
+            done_now = []
+            for mid in list(tracking):
+                try:
+                    d = scrape_live(page, mid)
+                except Exception as e:
+                    print(f"[live] #{mid}: {e}")
+                    continue
+                pair = match_pair(d, roster_idx, caps) if len(d.get("players", [])) == 10 else None
+                fx = None
+                if pair:
+                    for f in conf["schedule"]["roundRobin"] + conf["schedule"]["playoff"]:
+                        hid = f.get("home") or seeds.get(f.get("homeSeed"))
+                        aid = f.get("away") or seeds.get(f.get("awaySeed"))
+                        if hid and aid and frozenset((hid, aid)) == pair:
+                            fx = f
+                            break
+                if d["status"] == "finished" and d.get("score"):
+                    full = get_match(page, mid, {str(mid)})   # полноценный разбор со статой
+                    st = load_state()
+                    res = place_match(conf, mid, full or d, roster_idx, caps,
+                                      seeds, rr_done, get, st)
+                    save_state(st)
+                    if res:
+                        save_conf(conf)
+                        print(f"[live] #{mid} завершён — записан в {res[0]['id']}")
+                    done_now.append(mid)
+                    continue
+                if d["status"] == "pending":
+                    print(f"[live] #{mid}: матч ещё не начался")
+                if d.get("score"):
+                    hid = aid = None
+                    a, b = tuple(pair) if pair else (None, None)
+                    # ориентируем счёт: сторона 0 -> какая команда
+                    s0 = identify_side(d["sides"][0], roster_idx, caps) if pair else None
+                    if fx is not None and pair:
+                        home = fx.get("home") or seeds.get(fx.get("homeSeed"))
+                        sc = d["score"] if s0 == home else [d["score"][1], d["score"][0]]
+                        hid, aid = home, (fx.get("away") or seeds.get(fx.get("awaySeed")))
+                    else:
+                        sc = d["score"]
+                    live_entries.append({
+                        "matchId": int(mid),
+                        "fixtureId": fx["id"] if fx else None,
+                        "name": (fx.get("name") if fx else None)
+                                or (f"тур {fx.get('round')}" if fx else "матч"),
+                        "homeId": hid, "awayId": aid,
+                        "score": sc, "map": d.get("map"),
+                        "url": d["url"], "status": "live",
+                    })
+                    print(f"[live] #{mid}: {sc[0]}:{sc[1]}"
+                          + (f"  ({live_entries[-1]['name']})" if fx else ""))
+            for m in done_now:
+                tracking.remove(m)
+                seen_done.add(m)
+            conf = load_conf()
+            roster_idx = build_roster_index(conf)
+            build_dashboard(conf, roster_idx, get, live=live_entries)
+            if args.push and (live_entries or done_now):
+                git_push(f"live {time.strftime('%H:%M')}")
+
+            if not auto_find and not tracking:
+                print("[live] все матчи завершены.")
+                break
+            if auto_find and not tracking:
+                idle += 1
+                if idle % 10 == 1:
+                    print(f"[live] идущих матчей нет, продолжаю следить "
+                          f"({time.strftime('%H:%M:%S')})")
+            else:
+                idle = 0
+            time.sleep(itv if tracking else max(itv, 90))
+
     try:
-        if args.watch:
+        if manual_mode:
+            git_sync()
+            conf = load_conf()
+            roster_idx = build_roster_index(conf)
+            seeds = build_dashboard(conf, roster_idx, get)["seeds"]
+            st = load_state()
+            changed = False
+            if args.set:
+                changed = set_manual(conf, args.set[0], args.set[1], args.set[2], st) or changed
+            if args.clear:
+                changed = clear_fixture(conf, args.clear, st) or changed
+            if args.edit:
+                try:
+                    manual_menu(conf, st, seeds)
+                    changed = True
+                except (EOFError, KeyboardInterrupt):
+                    print()
+            if changed:
+                save_conf(conf)
+                save_state(st)
+                conf = load_conf()
+                roster_idx = build_roster_index(conf)
+                summ = build_dashboard(conf, roster_idx, get)
+                print(f"[ок] пересчитано · круговой этап "
+                      f"{summ['rrPlayed']}/{summ['rrTotal']}")
+                if args.push:
+                    git_push(f"manual {time.strftime('%Y-%m-%d %H:%M')}")
+                elif is_git_repo():
+                    try:
+                        ans = input("Опубликовать на GitHub? (y/n): ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        ans = ""
+                    if ans in ("y", "yes", "д", "да"):
+                        git_push(f"manual {time.strftime('%Y-%m-%d %H:%M')}")
+                    else:
+                        print("Не опубликовано. Позже: python update.py --no-scrape --push")
+            else:
+                print("[ручной] изменений нет")
+        elif args.live is not None:
+            live_loop()
+        elif args.watch:
             print(f"[watch] онлайн-режим, опрос каждые {args.interval} с. "
                   f"Ctrl+C — остановить.")
             first = True
@@ -1250,7 +1702,7 @@ def main():
         else:
             one_pass(True)
     except KeyboardInterrupt:
-        print("\n[watch] остановлено.")
+        print("\n[stop] остановлено.")
     finally:
         if browser:
             browser.close()
