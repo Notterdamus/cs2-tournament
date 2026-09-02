@@ -221,7 +221,11 @@ OVERVIEW_JS = r"""
   const map = MAPS.find(x => new RegExp('(^|\\n)' + x + '(\\n|$)').test(body))
               || MAPS.find(x => body.includes(x)) || null;
   const dm = body.match(/(\d{1,2}\s+[A-Za-z]{3,}\s+at\s+\d{1,2}:\d{2})/);
-  return { map, dateText: dm ? dm[1] : null };
+  let status = 'unknown';
+  if (/\bFinished\b|Заверш|Оконч/i.test(body)) status = 'finished';
+  else if (/1st half|2nd half|Overtime|Knife round|Warmup|Live|Идёт|половина|раунд/i.test(body)) status = 'live';
+  else if (/Waiting for players|Voting|Veto|Pick.?ban|Ban \/ Ban|Ожидание|Голосов/i.test(body)) status = 'pending';
+  return { map, dateText: dm ? dm[1] : null, status };
 }
 """
 
@@ -394,18 +398,21 @@ def scrape_match(page, match_id):
             rec.update(row_stats(vals))
         players.append(rec)
 
-    # карта и дата — со страницы обзора матча
+    # карта, дата и статус — со страницы обзора матча
     game_map = data.get("map")
     match_date = None
+    status = "finished" if data.get("finished") else "unknown"
     try:
         page.goto(f"https://cs2.fastcup.net/matches/{match_id}?hl=en",
                   wait_until="domcontentloaded", timeout=45000)
         for _ in range(12):
             page.wait_for_timeout(1000)
             ov = page.evaluate(OVERVIEW_JS)
-            if ov.get("map") or ov.get("dateText"):
+            if ov.get("map") or ov.get("dateText") or ov.get("status") != "unknown":
                 game_map = ov.get("map") or game_map
                 match_date = ov.get("dateText") or match_date
+                if ov.get("status") and ov["status"] != "unknown":
+                    status = ov["status"]
                 break
     except Exception:
         pass
@@ -415,6 +422,8 @@ def scrape_match(page, match_id):
         "url": f"https://cs2.fastcup.net/matches/{match_id}/stats",
         "map": game_map,
         "dateText": match_date,
+        "status": status,
+        "finished": status == "finished",
         "score": data["score"],
         "sides": [nicks[:len(nicks) // 2], nicks[len(nicks) // 2:]],
         "players": players,
@@ -1239,20 +1248,23 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
             added += 1
         print(f"[auto]   {slug}: новых кандидатов {added}")
 
-    pending = dict(st.get("pending", {}))     # {id: сколько раз не смогли прочитать счёт}
+    pending = dict(st.get("pending", {}))     # {id: сколько раз откладывали}
     newly = []
     for mid, meta in sorted(cand.items(), key=lambda kv: int(kv[0])):
-        raw = get(mid)
-        if not raw or not raw.get("score"):
-            # матч ещё идёт / только создан / временный сбой — пробуем ещё,
-            # и только после ~10 неудач заносим в игнор
+        raw = get(mid, fresh=True)            # свежий статус, без кеша
+        not_ready = (not raw) or (not raw.get("score")) or (not raw.get("finished"))
+        if not_ready:
+            # матч ещё идёт / только создан — ждём завершения, до ~20 попыток
             n = pending.get(mid, 0) + 1
-            if n >= 10:
+            why = "идёт" if (raw and raw.get("score") and not raw.get("finished")) \
+                  else "счёт не читается"
+            if n >= 20:
                 ignored.add(mid)
                 pending.pop(mid, None)
+                print(f"[auto]   #{mid}: {why} слишком долго — пропускаю")
             else:
                 pending[mid] = n
-                print(f"[auto]   #{mid}: счёт пока не читается, попробую позже ({n}/10)")
+                print(f"[auto]   #{mid}: {why}, проверю позже ({n}/20)")
             continue
         pending.pop(mid, None)
         # проверка даты по странице матча (авторитетнее профиля)
@@ -1516,13 +1528,13 @@ def main():
 
     cache_mem = {}
 
-    def get(mid):
+    def get(mid, fresh=False):
         mid = parse_match_id(mid)
         if not mid:
             return None
-        if mid in cache_mem:
+        if not fresh and mid in cache_mem:
             return cache_mem[mid]
-        r = get_match(page, mid, refresh)
+        r = get_match(page, mid, (refresh | {mid}) if fresh else refresh)
         cache_mem[mid] = r
         return r
 
