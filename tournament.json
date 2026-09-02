@@ -6,82 +6,282 @@
     "pointsWin": 3,
     "pointsDraw": 1,
     "pointsLoss": 0,
-    "tiebreakers": ["points", "h2h", "roundDiff", "roundsWon", "wins"],
+    "tiebreakers": [
+      "points",
+      "h2h",
+      "roundDiff",
+      "roundsWon",
+      "wins"
+    ],
     "doubleRoundRobin": false
   },
   "autoTrack": {
     "enabled": true,
     "since": "2026-09-02",
-    "captains": ["id2739525", "id2281946", "id2381920", "id2732297", "id2795335"]
+    "captains": [
+      "id2739525",
+      "id2281946",
+      "id2381920",
+      "id2732297",
+      "id2795335"
+    ]
   },
   "teams": [
     {
-      "id": "t1", "name": "Galymzhan", "tag": "GAL",
+      "id": "t1",
+      "name": "Galymzhan",
+      "tag": "GAL",
       "players": [
-        { "nick": "QoM_Gala", "slug": "id2739525" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" }
+        {
+          "nick": "QoM_Gala",
+          "slug": "id2739525"
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        }
       ]
     },
     {
-      "id": "t2", "name": "Bagdat", "tag": "BAG",
+      "id": "t2",
+      "name": "Bagdat",
+      "tag": "BAG",
       "players": [
-        { "nick": "Notterdamus", "slug": "id2281946" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" }
+        {
+          "nick": "Notterdamus",
+          "slug": "id2281946"
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        }
       ]
     },
     {
-      "id": "t3", "name": "Arnat", "tag": "ARN",
+      "id": "t3",
+      "name": "Arnat",
+      "tag": "ARN",
       "players": [
-        { "nick": "Areke__", "slug": "id2381920" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" }
+        {
+          "nick": "Areke__",
+          "slug": "id2381920"
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        }
       ]
     },
     {
-      "id": "t4", "name": "Ruslan", "tag": "RUS",
+      "id": "t4",
+      "name": "Ruslan",
+      "tag": "RUS",
       "players": [
-        { "nick": "1eooo", "slug": "id2732297" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" }
+        {
+          "nick": "1eooo",
+          "slug": "id2732297"
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        }
       ]
     },
     {
-      "id": "t5", "name": "Beibarys", "tag": "BEI",
+      "id": "t5",
+      "name": "Beibarys",
+      "tag": "BEI",
       "players": [
-        { "nick": "52gertc <3", "slug": "id2795335" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" },
-        { "nick": "", "slug": "" }
+        {
+          "nick": "52gertc <3",
+          "slug": "id2795335"
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        },
+        {
+          "nick": "",
+          "slug": ""
+        }
       ]
     }
   ],
   "schedule": {
     "roundRobin": [
-      { "id": "rr-1",  "round": 1, "home": "t5", "away": "t2", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-2",  "round": 1, "home": "t3", "away": "t4", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-3",  "round": 2, "home": "t5", "away": "t1", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-4",  "round": 2, "home": "t3", "away": "t2", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-5",  "round": 3, "home": "t1", "away": "t4", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-6",  "round": 3, "home": "t3", "away": "t5", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-7",  "round": 4, "home": "t3", "away": "t1", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-8",  "round": 4, "home": "t4", "away": "t2", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-9",  "round": 5, "home": "t1", "away": "t2", "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "rr-10", "round": 5, "home": "t4", "away": "t5", "matchId": null, "matchIds": null, "manualScore": null }
+      {
+        "id": "rr-1",
+        "round": 1,
+        "home": "t5",
+        "away": "t2",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-2",
+        "round": 1,
+        "home": "t3",
+        "away": "t4",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": [
+          13,
+          9
+        ],
+        "_auto": false,
+        "_manual": true
+      },
+      {
+        "id": "rr-3",
+        "round": 2,
+        "home": "t5",
+        "away": "t1",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-4",
+        "round": 2,
+        "home": "t3",
+        "away": "t2",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-5",
+        "round": 3,
+        "home": "t1",
+        "away": "t4",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-6",
+        "round": 3,
+        "home": "t3",
+        "away": "t5",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-7",
+        "round": 4,
+        "home": "t3",
+        "away": "t1",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-8",
+        "round": 4,
+        "home": "t4",
+        "away": "t2",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-9",
+        "round": 5,
+        "home": "t1",
+        "away": "t2",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "rr-10",
+        "round": 5,
+        "home": "t4",
+        "away": "t5",
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      }
     ],
     "playoff": [
-      { "id": "third", "name": "Матч за 3-е место", "homeSeed": 3, "awaySeed": 4, "bestOf": 3, "matchId": null, "matchIds": null, "manualScore": null },
-      { "id": "final", "name": "Финал", "homeSeed": 1, "awaySeed": 2, "bestOf": 3, "matchId": null, "matchIds": null, "manualScore": null }
+      {
+        "id": "third",
+        "name": "Матч за 3-е место",
+        "homeSeed": 3,
+        "awaySeed": 4,
+        "bestOf": 3,
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      },
+      {
+        "id": "final",
+        "name": "Финал",
+        "homeSeed": 1,
+        "awaySeed": 2,
+        "bestOf": 3,
+        "matchId": null,
+        "matchIds": null,
+        "manualScore": null
+      }
     ]
   }
 }
