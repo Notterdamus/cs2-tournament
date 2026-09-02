@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788341500,
+  "generatedAt": 1788341610,
   "autoTrack": true,
   "teams": [
     {
@@ -908,7 +908,7 @@ window.TOURNAMENT_DATA = {
       "awayId": "t1",
       "score": [
         6,
-        10
+        11
       ],
       "map": "Inferno",
       "url": "https://cs2.fastcup.net/matches/27061701/stats",
@@ -922,7 +922,7 @@ window.TOURNAMENT_DATA = {
       "awayId": "t2",
       "score": [
         1,
-        0
+        1
       ],
       "map": "Dust II",
       "url": "https://cs2.fastcup.net/matches/27061769/stats",
