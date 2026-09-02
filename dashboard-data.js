@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788348582,
+  "generatedAt": 1788348738,
   "autoTrack": true,
   "teams": [
     {
@@ -949,20 +949,5 @@ window.TOURNAMENT_DATA = {
   "bronzeId": null,
   "rrPlayed": 9,
   "rrTotal": 10,
-  "live": [
-    {
-      "matchId": 27062144,
-      "fixtureId": "rr-5",
-      "name": "тур 3",
-      "homeId": "t1",
-      "awayId": "t4",
-      "score": [
-        2,
-        10
-      ],
-      "map": "Dust II",
-      "url": "https://cs2.fastcup.net/matches/27062144/stats",
-      "status": "live"
-    }
-  ]
+  "live": []
 };
