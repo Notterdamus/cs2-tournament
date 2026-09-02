@@ -1119,6 +1119,38 @@ def match_pair(raw, roster_idx, captain_slugs):
     return None
 
 
+def _live_entry(conf, mid, raw, roster_idx, captain_slugs, seeds):
+    """Собрать запись для блока «Идёт сейчас» по идущему матчу."""
+    pair = match_pair(raw, roster_idx, captain_slugs)
+    if not pair:
+        return None
+    fx = None
+    for f in conf["schedule"]["roundRobin"] + conf["schedule"]["playoff"]:
+        hid = f.get("home") or seeds.get(f.get("homeSeed"))
+        aid = f.get("away") or seeds.get(f.get("awaySeed"))
+        if hid and aid and frozenset((hid, aid)) == pair:
+            fx = f
+            break
+    a, b = tuple(pair)
+    s0 = identify_side(raw["sides"][0], roster_idx, captain_slugs)
+    if fx is not None:
+        home = fx.get("home") or seeds.get(fx.get("homeSeed"))
+        away = fx.get("away") or seeds.get(fx.get("awaySeed"))
+        sc = raw["score"] if s0 == home else [raw["score"][1], raw["score"][0]]
+        hid, aid, name = home, away, (fx.get("name") or f"тур {fx.get('round')}")
+    else:
+        sc = raw["score"]
+        hid, aid = (s0, b if s0 == a else a)
+        name = "матч"
+    return {
+        "matchId": int(mid),
+        "fixtureId": fx["id"] if fx else None,
+        "name": name, "homeId": hid, "awayId": aid,
+        "score": sc, "map": raw.get("map"),
+        "url": raw.get("url"), "status": "live",
+    }
+
+
 def place_match(conf, mid, raw, roster_idx, captain_slugs, seeds, rr_done, get, state):
     """Вписывает сыгранный матч в свободную клетку расписания.
     Возвращает (fixture, human_desc) или None. Мутирует conf и state."""
@@ -1264,15 +1296,30 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
 
     pending = dict(st.get("pending", {}))     # {id: сколько раз откладывали}
     newly = []
+    live_entries = []
     for mid, meta in sorted(cand.items(), key=lambda kv: int(kv[0])):
         raw = get(mid, fresh=True)            # свежий статус, без кеша
         not_ready = (not raw) or (not raw.get("score")) or (not raw.get("finished"))
         if not_ready:
-            # матч ещё идёт / только создан — ждём завершения, до ~20 попыток
+            playing = bool(raw and raw.get("score")
+                           and len(raw.get("players", [])) == 10
+                           and raw.get("status") == "live")
+            # если матч ИДЁТ и это пара турнира — показываем live-счёт
+            if playing:
+                le = _live_entry(conf, mid, raw, roster_idx, captain_slugs, seeds)
+                if le:
+                    live_entries.append(le)
             n = pending.get(mid, 0) + 1
             why = "идёт" if (raw and raw.get("score") and not raw.get("finished")) \
                   else "счёт не читается"
-            if n >= 20:
+            # пока матч реально идёт — счётчик не растёт (ждём сколько нужно)
+            if playing:
+                pending[mid] = pending.get(mid, 0)
+                print(f"[auto]   #{mid}: идёт "
+                      f"{raw['score'][0]}:{raw['score'][1]}"
+                      + (f"  ({live_entries[-1]['name']})" if live_entries and
+                         live_entries[-1]['matchId'] == int(mid) else ""))
+            elif n >= 20:
                 ignored.add(mid)
                 pending.pop(mid, None)
                 print(f"[auto]   #{mid}: {why} слишком долго — пропускаю")
@@ -1299,7 +1346,7 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
     save_state(st)
     if newly:
         save_conf(conf)
-    return newly
+    return newly, live_entries
 
 
 # --------------------------------------------------------------------------- #
@@ -1552,6 +1599,8 @@ def main():
         cache_mem[mid] = r
         return r
 
+    prev_live = [False]
+
     def one_pass(first):
         nonlocal conf
         if args.push:
@@ -1559,17 +1608,20 @@ def main():
         conf = load_conf()
         roster_idx = build_roster_index(conf)
         summ = build_dashboard(conf, roster_idx, get)
-        found = []
+        found, live = [], []
         if (auto or args.once) and page is not None:
-            found = autotrack_scan(page, conf, roster_idx, get,
-                                   summ["seeds"], summ["rrDone"])
-            if found:
-                conf = load_conf()
-                roster_idx = build_roster_index(conf)
-                summ = build_dashboard(conf, roster_idx, get)
+            found, live = autotrack_scan(page, conf, roster_idx, get,
+                                         summ["seeds"], summ["rrDone"])
+            conf = load_conf()
+            roster_idx = build_roster_index(conf)
+            summ = build_dashboard(conf, roster_idx, get, live=live)
         stamp = time.strftime("%H:%M:%S")
-        chg = summ.get("changed", True) or bool(found)
+        has_live = bool(live)
+        # публикуем, если: изменилась таблица, ИЛИ есть live-счёт, ИЛИ live только что пропал
+        chg = summ.get("changed", True) or bool(found) or has_live or prev_live[0]
+        prev_live[0] = has_live
         print(f"[{stamp}] круговой этап {summ['rrPlayed']}/{summ['rrTotal']}"
+              + (f" · идёт {len(live)} матч(а)" if has_live else "")
               + (" · изменений нет" if not chg else "")
               + (" · открой index.html" if first else ""))
         if args.push and chg:
