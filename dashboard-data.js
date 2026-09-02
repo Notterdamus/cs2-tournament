@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788354788,
+  "generatedAt": 1788354924,
   "autoTrack": true,
   "teams": [
     {
@@ -988,7 +988,7 @@ window.TOURNAMENT_DATA = {
       "awayId": "t4",
       "score": [
         10,
-        10
+        11
       ],
       "map": "Inferno",
       "url": "https://cs2.fastcup.net/matches/27062581/stats",
