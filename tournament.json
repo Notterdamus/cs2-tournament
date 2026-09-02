@@ -274,8 +274,11 @@
         "awaySeed": 4,
         "bestOf": 3,
         "matchId": null,
-        "matchIds": null,
-        "manualScore": null
+        "matchIds": [
+          27062403
+        ],
+        "manualScore": null,
+        "_auto": true
       },
       {
         "id": "final",
