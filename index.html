@@ -294,15 +294,20 @@
 <script src="dashboard-data.js"></script>
 <script>
 (function(){
-  const D = window.TOURNAMENT_DATA;
   const $ = (s,r=document)=>r.querySelector(s);
   const el = (t,c,txt)=>{const e=document.createElement(t); if(c)e.className=c; if(txt!=null)e.textContent=txt; return e;};
+  let D = window.TOURNAMENT_DATA;
+  let plSortKey='rating', plSortDir=-1;
 
-  if(!D){
-    document.querySelector('.wrap').innerHTML =
-      '<h1>Нет данных</h1><p style="color:#8a97ad">Турнир ещё не запущен.</p>';
-    return;
-  }
+  function paint(){
+    if(!D){
+      document.querySelector('.wrap').innerHTML =
+        '<h1>Нет данных</h1><p style="color:#8a97ad">Турнир ещё не запущен.</p>';
+      return;
+    }
+    $('#champ').innerHTML='';
+    document.querySelectorAll('.livebanner').forEach(x=>x.remove());
+    ['standings','playoff','matches','players'].forEach(id=>{ const s=$('#tab-'+id); if(s) s.innerHTML=''; });
 
   const T = {};
   (D.teams||[]).forEach(t=>T[t.id]=t);
@@ -610,7 +615,7 @@
     const tb = el('tbody'); tbl.append(tb);
     sx.append(tbl); p.append(sx); host.append(p);
 
-    let sortKey='rating', sortDir=-1;
+    let sortKey=plSortKey, sortDir=plSortDir;
     function render(){
       const f = sel.value;
       const rows = all.filter(x=>!f||x.teamId===f).slice().sort((a,b)=>{
@@ -643,12 +648,16 @@
         const k=th.dataset.key;
         if(k===sortKey) sortDir*=-1;
         else { sortKey=k; sortDir = (k==='nick'||k==='teamName')?1:-1; }
+        plSortKey=sortKey; plSortDir=sortDir;
         render();
       };
     });
     sel.onchange = render;
     render();
   })();
+  } // конец paint()
+
+  paint();
 
   // ---------- tabs ----------
   const tabs = $('#tabs');
