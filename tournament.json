@@ -257,9 +257,10 @@
         "round": 5,
         "home": "t4",
         "away": "t5",
-        "matchId": null,
+        "matchId": 27061832,
         "matchIds": null,
-        "manualScore": null
+        "manualScore": null,
+        "_auto": true
       }
     ],
     "playoff": [
