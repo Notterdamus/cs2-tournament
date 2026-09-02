@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788344745,
+  "generatedAt": 1788344944,
   "autoTrack": true,
   "teams": [
     {
@@ -929,5 +929,20 @@ window.TOURNAMENT_DATA = {
   "bronzeId": null,
   "rrPlayed": 7,
   "rrTotal": 10,
-  "live": []
+  "live": [
+    {
+      "matchId": 27061918,
+      "fixtureId": "rr-9",
+      "name": "тур 5",
+      "homeId": "t1",
+      "awayId": "t2",
+      "score": [
+        4,
+        8
+      ],
+      "map": "Mirage",
+      "url": "https://cs2.fastcup.net/matches/27061918/stats",
+      "status": "live"
+    }
+  ]
 };
