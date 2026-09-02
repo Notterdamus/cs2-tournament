@@ -200,9 +200,10 @@
         "round": 2,
         "home": "t3",
         "away": "t2",
-        "matchId": null,
+        "matchId": 27061769,
         "matchIds": null,
-        "manualScore": null
+        "manualScore": null,
+        "_auto": true
       },
       {
         "id": "rr-5",
