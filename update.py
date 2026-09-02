@@ -741,13 +741,20 @@ def aggregate_players(conf, all_resolved):
                     "adrSum": 0.0, "hsSum": 0.0, "ratingSum": 0.0,
                     "entry": 0, "clutches": 0, "multikills": 0, "bestRating": 0.0,
                 }
+            has_stats = bool(p.get("k") or p.get("d") or p.get("adr"))
             rec["maps"] += p.get("maps", 0)
+            rec.setdefault("statMaps", 0)
+            if has_stats:
+                rec["statMaps"] += 1
             rec["k"] += p.get("k", 0)
             rec["d"] += p.get("d", 0)
             rec["a"] += p.get("a", 0)
             rec["adrSum"] += p.get("adr", 0)
             rec["hsSum"] += p.get("hs", 0)
-            rec["ratingSum"] += p.get("rating", 0)
+            if p.get("rating"):
+                rec["ratingSum"] += p["rating"]
+                rec.setdefault("fcMaps", 0)
+                rec["fcMaps"] += 1
             rec["entry"] += p.get("entry", 0)
             rec["clutches"] += p.get("clutches", 0)
             rec["multikills"] += p.get("multikills", 0)
@@ -756,16 +763,28 @@ def aggregate_players(conf, all_resolved):
     out = []
     for rec in agg.values():
         m = rec["maps"] or 0
+        sm = rec.get("statMaps", 0) or 0
+        kd = (rec["k"] / rec["d"]) if rec["d"] else float(rec["k"])
+        adr = (rec["adrSum"] / sm) if sm else 0.0
+        # FastCup даёт рейтинг только для рейтинговых матчей; в кастомках он ~1000
+        # у всех — поэтому считаем свой индекс формы из K/D и урона.
+        fc = rec["ratingSum"] / rec["fcMaps"] if rec.get("fcMaps") else 0
+        if fc and abs(fc - 1000) > 3:          # FastCup дал осмысленный рейтинг
+            rating = round(fc)
+        else:
+            mk = (rec["multikills"] / sm) if sm else 0
+            idx = 0.45 + 0.33 * kd + 0.0025 * adr + 0.006 * mk
+            rating = round(1000 * max(0.60, min(1.50, idx)))
         out.append({
             "nick": rec["nick"], "slug": rec["slug"],
             "teamId": rec["teamId"], "teamName": rec["teamName"],
             "teamTag": rec["teamTag"],
             "maps": m,
             "k": rec["k"], "d": rec["d"], "a": rec["a"],
-            "kd": round(rec["k"] / rec["d"], 2) if rec["d"] else rec["k"],
-            "adr": round(rec["adrSum"] / m, 1) if m else 0,
-            "hs": round(rec["hsSum"] / m, 1) if m else 0,
-            "rating": round(rec["ratingSum"] / m) if m else 0,
+            "kd": round(kd, 2),
+            "adr": round(adr, 1),
+            "hs": round(rec["hsSum"] / sm, 1) if sm else 0,
+            "rating": rating,
             "bestRating": round(rec["bestRating"]),
             "entry": rec["entry"], "clutches": rec["clutches"],
             "multikills": rec["multikills"],
