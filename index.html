@@ -674,17 +674,26 @@
     if(saved){ const b=tabs.querySelector(`[data-tab="${saved}"]`); if(b) b.click(); }
   }catch(_){}
 
-  // ---------- авто-обновление страницы, когда update.py подложил новые данные ----------
-  const BASE = (D.generatedAt||0);
-  const REFRESH = (D.live&&D.live.length) ? 20000 : 45000;  // чаще, если идёт матч
-  setInterval(async ()=>{
+  // ---------- живое обновление: тянем свежие данные мимо кеша и перерисовываем на месте ----------
+  async function refresh(){
     try{
       const r = await fetch('dashboard-data.js?t='+Date.now(), {cache:'no-store'});
+      if(!r.ok) return;
       const txt = await r.text();
-      const m = txt.match(/"generatedAt":\s*(\d+)/);
-      if(m && parseInt(m[1],10) > BASE) location.reload();
+      const i = txt.indexOf('= ');
+      if(i < 0) return;
+      const fresh = JSON.parse(txt.slice(i+2).replace(/;\s*$/,''));
+      if((fresh.generatedAt||0) !== ((D&&D.generatedAt)||0)){
+        D = fresh;
+        paint();   // активная вкладка сохраняется — paint чистит только содержимое секций
+      }
     }catch(_){}
-  }, REFRESH);
+  }
+  (function loop(){
+    const wait = (D && D.live && D.live.length) ? 12000 : 25000;
+    setTimeout(async ()=>{ await refresh(); loop(); }, wait);
+  })();
+  refresh();   // сразу подтянуть самое свежее, минуя кеш загрузки страницы
 })();
 </script>
 </body>
