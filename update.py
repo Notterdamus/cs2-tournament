@@ -1239,12 +1239,22 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
             added += 1
         print(f"[auto]   {slug}: новых кандидатов {added}")
 
+    pending = dict(st.get("pending", {}))     # {id: сколько раз не смогли прочитать счёт}
     newly = []
     for mid, meta in sorted(cand.items(), key=lambda kv: int(kv[0])):
         raw = get(mid)
         if not raw or not raw.get("score"):
-            ignored.add(mid)
+            # матч ещё идёт / только создан / временный сбой — пробуем ещё,
+            # и только после ~10 неудач заносим в игнор
+            n = pending.get(mid, 0) + 1
+            if n >= 10:
+                ignored.add(mid)
+                pending.pop(mid, None)
+            else:
+                pending[mid] = n
+                print(f"[auto]   #{mid}: счёт пока не читается, попробую позже ({n}/10)")
             continue
+        pending.pop(mid, None)
         # проверка даты по странице матча (авторитетнее профиля)
         if since:
             md = parse_profile_date(raw.get("dateText") or "")
@@ -1259,6 +1269,7 @@ def autotrack_scan(page, conf, roster_idx, get, seeds, rr_done):
             newly.append(res[1])
 
     st["ignored"] = sorted(ignored)
+    st["pending"] = pending
     save_state(st)
     if newly:
         save_conf(conf)
