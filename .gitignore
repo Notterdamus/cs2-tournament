@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .preview/
 .pv/
+
+watch.log
+watch.err
