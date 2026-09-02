@@ -875,7 +875,7 @@ def build_dashboard(conf, roster_idx, get, live=None):
         "title": conf["title"],
         "subtitle": conf.get("subtitle", ""),
         "format": conf["format"],
-        "generatedAt": int(time.time()),
+        "generatedAt": 0,  # проставим ниже
         "autoTrack": bool(conf.get("autoTrack", {}).get("enabled")),
         "teams": conf["teams"],
         "standings": standings,
@@ -889,14 +889,28 @@ def build_dashboard(conf, roster_idx, get, live=None):
         "rrTotal": total_rr_matches(conf),
         "live": live or [],
     }
+    body = json.dumps(dashboard, ensure_ascii=False, indent=2)
+    # если содержимое (кроме отметки времени) не изменилось — не трогаем файл,
+    # чтобы не плодить пустые коммиты каждый цикл
+    prev_ts = 0
+    try:
+        old = OUT.read_text(encoding="utf-8")
+        old_json = old.split("= ", 1)[1].rsplit(";", 1)[0]
+        m = re.search(r'"generatedAt":\s*(\d+)', old_json)
+        prev_ts = int(m.group(1)) if m else 0
+        if re.sub(r'"generatedAt":\s*\d+', '"generatedAt": 0', old_json).strip() == body.strip():
+            return {"rrPlayed": dashboard["rrPlayed"], "rrTotal": dashboard["rrTotal"],
+                    "rrDone": rr_done, "seeds": seeds, "changed": False}
+    except Exception:
+        pass
+    body = body.replace('"generatedAt": 0', f'"generatedAt": {int(time.time())}', 1)
     OUT.write_text(
         "// Автогенерация update.py — не редактировать вручную\n"
-        "window.TOURNAMENT_DATA = " +
-        json.dumps(dashboard, ensure_ascii=False, indent=2) + ";\n",
+        "window.TOURNAMENT_DATA = " + body + ";\n",
         encoding="utf-8",
     )
     return {"rrPlayed": dashboard["rrPlayed"], "rrTotal": dashboard["rrTotal"],
-            "rrDone": rr_done, "seeds": seeds}
+            "rrDone": rr_done, "seeds": seeds, "changed": True}
 
 
 # --------------------------------------------------------------------------- #
@@ -1545,18 +1559,20 @@ def main():
         conf = load_conf()
         roster_idx = build_roster_index(conf)
         summ = build_dashboard(conf, roster_idx, get)
+        found = []
         if (auto or args.once) and page is not None:
-            newly = autotrack_scan(page, conf, roster_idx, get,
+            found = autotrack_scan(page, conf, roster_idx, get,
                                    summ["seeds"], summ["rrDone"])
-            if newly:
+            if found:
                 conf = load_conf()
                 roster_idx = build_roster_index(conf)
                 summ = build_dashboard(conf, roster_idx, get)
         stamp = time.strftime("%H:%M:%S")
-        print(f"[{stamp}] dashboard-data.js обновлён · "
-              f"круговой этап {summ['rrPlayed']}/{summ['rrTotal']}"
-              + ("" if not first else " · открой index.html"))
-        if args.push:
+        chg = summ.get("changed", True) or bool(found)
+        print(f"[{stamp}] круговой этап {summ['rrPlayed']}/{summ['rrTotal']}"
+              + (" · изменений нет" if not chg else "")
+              + (" · открой index.html" if first else ""))
+        if args.push and chg:
             git_push(f"tournament update {time.strftime('%Y-%m-%d %H:%M')}")
         return summ
 
