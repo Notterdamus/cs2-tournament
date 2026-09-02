@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788340653,
+  "generatedAt": 1788341073,
   "autoTrack": true,
   "teams": [
     {
@@ -899,5 +899,20 @@ window.TOURNAMENT_DATA = {
   "bronzeId": null,
   "rrPlayed": 4,
   "rrTotal": 10,
-  "live": []
+  "live": [
+    {
+      "matchId": 27061701,
+      "fixtureId": "rr-3",
+      "name": "тур 2",
+      "homeId": "t5",
+      "awayId": "t1",
+      "score": [
+        6,
+        5
+      ],
+      "map": "Inferno",
+      "url": "https://cs2.fastcup.net/matches/27061701/stats",
+      "status": "live"
+    }
+  ]
 };
