@@ -1144,7 +1144,11 @@ def _live_entry(conf, mid, raw, roster_idx, captain_slugs, seeds):
     if not pair:
         return None
     fx = None
-    for f in conf["schedule"]["roundRobin"] + conf["schedule"]["playoff"]:
+    # сначала незавершённые клетки (актуальный матч), кругового этапа не берём
+    # если он уже сыгран — это уже плей-офф
+    for f in (conf["schedule"]["playoff"] + conf["schedule"]["roundRobin"]):
+        if f.get("matchId") or f.get("matchIds") or f.get("manualScore"):
+            continue
         hid = f.get("home") or seeds.get(f.get("homeSeed"))
         aid = f.get("away") or seeds.get(f.get("awaySeed"))
         if hid and aid and frozenset((hid, aid)) == pair:
