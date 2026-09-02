@@ -168,7 +168,7 @@
   .mvp .crown{font-size:34px;line-height:1;flex:none}
   .mvp .mv-role{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--gold);font-weight:800}
   .mvp .mv-name{font-size:21px;font-weight:800;margin:2px 0 1px}
-  .mvp .mv-team{font-size:13px;color:var(--muted)}
+  .mvp .mv-team{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:3px}
   .mvp .mv-stats{margin-left:auto;text-align:right;font-size:12.5px;color:var(--muted);line-height:1.7;flex:none}
   .mvp .mv-stats b{color:var(--txt)}
   @media(max-width:560px){
@@ -184,7 +184,8 @@
   .lead .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
   .lead .v{font-size:15px;font-weight:800;margin-top:6px;display:flex;align-items:baseline;gap:6px}
   .lead .v small{font-weight:600;color:var(--accent-soft);font-size:12px}
-  .lead .t{font-size:11.5px;color:var(--dim);margin-top:2px}
+  .lead .t{font-size:11.5px;color:var(--dim);margin-top:4px;display:flex;align-items:center;gap:5px}
+  .lead .t .tag{min-width:30px;height:18px;font-size:10px}
 
   th.sortable{cursor:pointer;user-select:none}
   th.sortable:hover{color:var(--txt)}
@@ -554,7 +555,7 @@
         `<span class="crown">${done?'👑':'⭐'}</span>`+
         `<div><div class="mv-role">${done?'MVP турнира':'Лучший игрок'}</div>`+
         `<div class="mv-name">${mvp.nick}</div>`+
-        `<div class="mv-team">${mvp.teamName}</div></div>`+
+        `<div class="mv-team"><span class="tag">${mvp.teamTag}</span> команда «${mvp.teamName}»</div></div>`+
         `<div class="mv-stats">Рейтинг <b>${mvp.rating}</b> · K/D <b>${mvp.kd}</b><br>`+
         `ADR <b>${mvp.adr}</b> · HS <b>${mvp.hs}%</b> · <b>${mvp.maps}</b> карт(ы)</div>`;
       host.append(h);
@@ -576,7 +577,7 @@
       const c = el('div','lead');
       c.innerHTML = `<div class="k">${label}</div>
         <div class="v">${b.val} <small>${b.p.nick}</small></div>
-        <div class="t">${b.p.teamName}</div>`;
+        <div class="t"><span class="tag">${b.p.teamTag}</span> ${b.p.teamName}</div>`;
       lg.append(c);
     });
     host.append(lg);
