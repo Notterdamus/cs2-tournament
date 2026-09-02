@@ -766,15 +766,11 @@ def aggregate_players(conf, all_resolved):
         sm = rec.get("statMaps", 0) or 0
         kd = (rec["k"] / rec["d"]) if rec["d"] else float(rec["k"])
         adr = (rec["adrSum"] / sm) if sm else 0.0
-        # FastCup даёт рейтинг только для рейтинговых матчей; в кастомках он ~1000
-        # у всех — поэтому считаем свой индекс формы из K/D и урона.
-        fc = rec["ratingSum"] / rec["fcMaps"] if rec.get("fcMaps") else 0
-        if fc and abs(fc - 1000) > 3:          # FastCup дал осмысленный рейтинг
-            rating = round(fc)
-        else:
-            mk = (rec["multikills"] / sm) if sm else 0
-            idx = 0.45 + 0.33 * kd + 0.0025 * adr + 0.006 * mk
-            rating = round(1000 * max(0.60, min(1.50, idx)))
+        # FastCup для этих матчей (кастомки без анти-чита) осмысленного рейтинга
+        # не даёт — считаем свой индекс формы из K/D, урона и мультикиллов.
+        mk = (rec["multikills"] / sm) if sm else 0
+        idx = 0.45 + 0.33 * kd + 0.0025 * adr + 0.006 * mk
+        rating = round(1000 * max(0.55, min(1.55, idx)))
         out.append({
             "nick": rec["nick"], "slug": rec["slug"],
             "teamId": rec["teamId"], "teamName": rec["teamName"],
