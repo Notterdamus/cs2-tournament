@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788339049,
+  "generatedAt": 1788340351,
   "autoTrack": true,
   "teams": [
     {
@@ -889,5 +889,34 @@ window.TOURNAMENT_DATA = {
   "bronzeId": null,
   "rrPlayed": 3,
   "rrTotal": 10,
-  "live": []
+  "live": [
+    {
+      "matchId": 27061645,
+      "fixtureId": "rr-2",
+      "name": "тур 1",
+      "homeId": "t3",
+      "awayId": "t4",
+      "score": [
+        7,
+        12
+      ],
+      "map": "Mirage",
+      "url": "https://cs2.fastcup.net/matches/27061645/stats",
+      "status": "live"
+    },
+    {
+      "matchId": 27061701,
+      "fixtureId": "rr-3",
+      "name": "тур 2",
+      "homeId": "t5",
+      "awayId": "t1",
+      "score": [
+        3,
+        1
+      ],
+      "map": "Inferno",
+      "url": "https://cs2.fastcup.net/matches/27061701/stats",
+      "status": "live"
+    }
+  ]
 };
