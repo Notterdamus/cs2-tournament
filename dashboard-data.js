@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788345139,
+  "generatedAt": 1788345334,
   "autoTrack": true,
   "teams": [
     {
@@ -931,17 +931,17 @@ window.TOURNAMENT_DATA = {
   "rrTotal": 10,
   "live": [
     {
-      "matchId": 27061918,
-      "fixtureId": "rr-9",
-      "name": "тур 5",
-      "homeId": "t1",
-      "awayId": "t2",
+      "matchId": 27061981,
+      "fixtureId": "rr-6",
+      "name": "тур 3",
+      "homeId": "t3",
+      "awayId": "t5",
       "score": [
-        5,
-        8
+        4,
+        0
       ],
-      "map": "Mirage",
-      "url": "https://cs2.fastcup.net/matches/27061918/stats",
+      "map": "Dust II",
+      "url": "https://cs2.fastcup.net/matches/27061981/stats",
       "status": "live"
     }
   ]
