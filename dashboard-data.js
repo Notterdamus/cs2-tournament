@@ -16,7 +16,7 @@ window.TOURNAMENT_DATA = {
     ],
     "doubleRoundRobin": false
   },
-  "generatedAt": 1788330297,
+  "generatedAt": 1788330489,
   "autoTrack": true,
   "teams": [
     {
